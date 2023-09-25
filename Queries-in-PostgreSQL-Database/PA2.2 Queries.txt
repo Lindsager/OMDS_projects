@@ -1,0 +1,123 @@
+create index Flights_idx1 on Flights(origin_city,dest_city,actual_time); 
+create index Flights_idx2 on Flights(actual_time); 
+create index Flights_idx3 on Flights(dest_city,origin_city,actual_time); 
+
+FLIGHTS
+
+#1
+create index Flights_idx1 on Flights(origin_city,dest_city,actual_time); 
+SELECT DISTINCT f.origin_city, f.dest_city, f.actual_time AS time
+FROM Flights f JOIN 
+	(SELECT origin_city, MAX(actual_time) 
+	 FROM Flights
+	 GROUP BY origin_city) s
+ON f.origin_city = s.origin_city AND f.actual_time = s.max
+ORDER BY f.origin_city, f.dest_city ASC;
+
+#2
+SELECT f.origin_city AS city
+FROM flights f
+GROUP BY f.origin_city
+HAVING MAX(f.actual_time) < 180 OR MAX(f.actual_time) IS NULL;
+
+#3
+SELECT f.origin_city, ROUND(((CAST(s.short_flight_time AS NUMERIC(10,2)) / 
+							  CAST(COUNT(f.actual_time) AS NUMERIC(10,2)))*100),2)
+							  AS percentage
+FROM flights f LEFT JOIN
+	(SELECT origin_city, count(actual_time) AS short_flight_time
+	 FROM flights
+	 WHERE actual_time < 180 AND actual_time IS NOT NULL
+	 GROUP BY origin_city) s
+ON f.origin_city = s.origin_city
+GROUP BY f.origin_city, s.short_flight_time
+ORDER BY percentage ASC;
+
+#4
+SELECT DISTINCT f.dest_city
+FROM flights f JOIN 
+	(SELECT DISTINCT dest_city
+	 	FROM flights
+	 	WHERE origin_city = '"San Diego CA"' OR dest_city ='"San Diego CA"') s
+ON f.origin_city = s.dest_city
+WHERE f.dest_city NOT IN
+	(SELECT DISTINCT dest_city
+	 	FROM flights
+	 	WHERE origin_city = '"San Diego CA"' OR dest_city ='"San Diego CA"')
+GROUP BY f.dest_city;
+
+#5
+SELECT c.name AS carrier
+FROM flights f JOIN carriers c ON f.carrier_id = c.cid
+WHERE f.carrier_id IN
+	(SELECT f.carrier_id
+	 FROM flights
+	 WHERE f.origin_city = '"San Diego CA"' AND f.dest_city = '"San Francisco CA"')
+GROUP BY c.name
+ORDER BY c.name ASC;
+
+#6
+SELECT c.name AS carrier
+FROM flights f JOIN carriers c ON f.carrier_id = c.cid
+WHERE f.origin_city = '"San Diego CA"' AND f.dest_city = '"San Francisco CA"'
+GROUP BY c.name
+ORDER BY c.name ASC;
+
+#7
+SELECT DISTINCT t.name
+FROM track t
+WHERE track_id NOT IN
+	(SELECT track_id
+	 FROM invoice_line)
+ORDER BY t.name ASC;
+
+#8
+SELECT DISTINCT t.name
+FROM track t
+WHERE t.track_id NOT IN
+	(SELECT pt.track_id
+	FROM playlist_track pt
+	WHERE pt.playlist_id IN 
+		(SELECT p.playlist_id
+	 	FROM playlist p
+	 	WHERE p.name LIKE N'90_s Music'))
+ORDER BY t.name ASC;
+
+#9
+SELECT ar.name AS artist_name
+FROM artist ar
+WHERE ar.artist_id NOT IN	
+	(SELECT DISTINCT al.artist_id
+	FROM album al
+	WHERE al.album_id IN
+		(SELECT t.album_id
+		 FROM track t
+		 WHERE t.genre_id IN	
+			(SELECT g.genre_id
+			FROM genre g
+			WHERE g.name = 'Blues')))
+ORDER BY ar.name ASC;
+
+#10
+SELECT DISTINCT p.name
+FROM playlist p
+WHERE playlist_id NOT IN
+	(SELECT pt.playlist_id
+	FROM playlist_track pt
+	WHERE pt.track_id IN
+		(SELECT t.track_id
+		 FROM track t
+		 WHERE t.genre_id IN
+			(SELECT g.genre_id
+			FROM genre g
+			WHERE g.name = 'Rock' OR g.name='Blues')))
+ORDER BY p.name ASC;
+
+#11
+SELECT ar.name AS artist_name
+FROM artist ar
+WHERE ar.artist_id IN
+	(SELECT al.artist_id
+	FROM album al JOIN track t ON al.album_id = t.album_id
+	GROUP BY al.artist_id HAVING COUNT(DISTINCT t.genre_id) >= 3)
+ORDER BY ar.name;
